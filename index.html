@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Умное управление освещением | Замена ламп</title>
+    <!-- Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <i class="fas fa-lightbulb"></i>
+            <span>3D SmartLight Management</span>
+        </div>
+        <div class="connection-status" id="connection-status">
+            <i class="fas fa-circle"></i>
+            <span>WebSocket: Подключение...</span>
+        </div>
+        <div class="status-bar">
+            <div class="stat-item">
+                <i class="fas fa-circle online"></i>
+                <span>Вкл: <span id="stat-on">0</span></span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-circle offline"></i>
+                <span>Выкл: <span id="stat-off">0</span></span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-circle warning"></i>
+                <span>Под замену: <span id="stat-replace">0</span></span>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-bell"></i>
+            <span>Иванов П.</span>
+            <div class="avatar">ИП</div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- 3D сцена -->
+        <div class="scene-wrapper">
+            <canvas id="three-canvas"></canvas>
+            
+            <!-- Элементы управления камерой -->
+            <div class="camera-controls">
+                <button id="cam-top"><i class="fas fa-arrow-up"></i> Вид сверху</button>
+                <button id="cam-3d"><i class="fas fa-cube"></i> 3D обзор</button>
+                <button id="cam-first"><i class="fas fa-street-view"></i> От первого лица</button>
+            </div>
+            
+            <!-- Легенда -->
+            <div class="map-legend">
+                <div class="legend-item"><span class="color-dot" style="background: #4caf50;"></span> Включена</div>
+                <div class="legend-item"><span class="color-dot" style="background: #9e9e9e;"></span> Выключена</div>
+                <div class="legend-item"><span class="color-dot" style="background: #ff9800;"></span> Требует замены</div>
+                <div class="legend-item"><span class="color-dot" style="background: #2196f3;"></span> В процессе замены</div>
+            </div>
+            
+            <div class="map-overlay-stats">
+                <div class="map-stat">
+                    <span class="label">Всего ламп</span>
+                    <span class="value" id="total-lamps">0</span>
+                </div>
+                <div class="map-stat">
+                    <span class="label">Активных</span>
+                    <span class="value" id="active-lamps">0</span>
+                </div>
+                <div class="map-stat">
+                    <span class="label">В работе</span>
+                    <span class="value" id="in-progress">0</span>
+                </div>
+                <div class="map-stat">
+                    <span class="label">Онлайн</span>
+                    <span class="value" id="online-users">1</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Правая панель -->
+        <div class="right-panel">
+            <!-- Вкладки -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="plan">План замены</button>
+                <button class="tab-btn" data-tab="progress">Выполнение</button>
+                <button class="tab-btn" data-tab="history">История</button>
+                <button class="tab-btn" data-tab="realtime">Real-time</button>
+            </div>
+
+            <!-- Содержимое вкладок -->
+            <div class="tab-content">
+                <!-- Вкладка План замены -->
+                <div class="tab-pane active" id="tab-plan">
+                    <div class="panel-section">
+                        <h3>Составить план замены</h3>
+                        <div class="filter-controls">
+                            <select id="area-filter">
+                                <option value="all">Все зоны</option>
+                                <option value="zone1">Зона A (Север)</option>
+                                <option value="zone2">Зона B (Центр)</option>
+                                <option value="zone3">Зона C (Юг)</option>
+                            </select>
+                            <button class="btn-primary" id="create-plan">
+                                <i class="fas fa-clipboard-list"></i> Создать план
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>AI-анализ <i class="fas fa-robot" style="color: #3f51b5;"></i></h4>
+                        <div class="ai-insights">
+                            <p>Рекомендуется заменить 3 лампы в ближайшие 24 часа</p>
+                            <div class="insight-item">
+                                <span>Лампа #103:</span>
+                                <span class="badge warning">Высокий приоритет</span>
+                            </div>
+                            <div class="insight-item">
+                                <span>Лампа #107:</span>
+                                <span class="badge">Средний приоритет</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Лампы, требующие замены</h4>
+                        <div class="lamps-list" id="replace-list"></div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Активные планы</h4>
+                        <div class="plans-list" id="active-plans"></div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Выполнение работ -->
+                <div class="tab-pane" id="tab-progress">
+                    <div class="panel-section">
+                        <h3>Текущий статус замены</h3>
+                        <div class="progress-stats">
+                            <div class="progress-item">
+                                <span>Запланировано:</span>
+                                <strong id="progress-planned">0</strong>
+                            </div>
+                            <div class="progress-item">
+                                <span>В процессе:</span>
+                                <strong id="progress-in-progress">0</strong>
+                            </div>
+                            <div class="progress-item">
+                                <span>Завершено:</span>
+                                <strong id="progress-completed">0</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Автоматизированная замена</h4>
+                        <div class="auto-replace-control">
+                            <div class="drone-status">
+                                <i class="fas fa-drone"></i>
+                                <span>Дрон-заменщик #3</span>
+                                <span class="status-badge online">Активен</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 45%" id="drone-progress">45%</div>
+                            </div>
+                            <div class="drone-actions">
+                                <button class="btn-secondary" id="start-auto">
+                                    <i class="fas fa-play"></i> Запустить
+                                </button>
+                                <button class="btn-secondary" id="pause-auto">
+                                    <i class="fas fa-pause"></i> Пауза
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Очередь на замену</h4>
+                        <div class="queue-list" id="queue-list"></div>
+                    </div>
+                </div>
+
+                <!-- Вкладка История -->
+                <div class="tab-pane" id="tab-history">
+                    <div class="panel-section">
+                        <h3>История замен</h3>
+                        <div class="history-timeline" id="history-timeline"></div>
+                    </div>
+                </div>
+
+                <!-- Вкладка Real-time -->
+                <div class="tab-pane" id="tab-realtime">
+                    <div class="panel-section">
+                        <h3>WebSocket монитор</h3>
+                        <div class="ws-status" id="ws-status">
+                            <i class="fas fa-plug"></i>
+                            <span>Статус: </span>
+                            <span id="ws-status-text">Подключение...</span>
+                        </div>
+                        <div class="ws-log" id="ws-log">
+                            <div class="log-entry">Ожидание сообщений...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-section">
+                        <h4>Активные пользователи</h4>
+                        <div class="users-list" id="users-list">
+                            <div class="user-item">
+                                <i class="fas fa-user-circle"></i>
+                                <span>Иванов П. (вы)</span>
+                                <span class="badge online">онлайн</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-section">
+                        <h4>События в реальном времени</h4>
+                        <div class="events-list" id="events-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопки быстрых действий -->
+            <div class="quick-actions">
+                <button class="btn-success" id="mark-replaced">
+                    <i class="fas fa-check-circle"></i> Отметить замену
+                </button>
+                <button class="btn-warning" id="report-issue">
+                    <i class="fas fa-exclamation-triangle"></i> Проблема
+                </button>
+                <button class="btn-info" id="scan-area">
+                    <i class="fas fa-qrcode"></i> Сканировать
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для деталей лампы -->
+    <div id="lamp-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3 id="modal-title">Детали лампы</h3>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
