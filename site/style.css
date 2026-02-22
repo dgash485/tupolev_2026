@@ -719,6 +719,10 @@ select option {
     border-top: 1px solid #2a3a55;
     background: #0a1220;
 }
+/*Убираем ватермарк*/
+.leaflet-control-attribution {
+    display: none !important;
+}
 
 /* Модальное окно */
 .modal {
