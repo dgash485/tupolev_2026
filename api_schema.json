@@ -1,0 +1,7 @@
+{
+  "lamp_id": "KZN-CENTRAL-085",
+  "status": "burnt_out", 
+  "temperature": 42.5,
+  "coordinates": {"lat": 55.79, "lng": 49.12},
+  "last_service": "2026-02-20"
+}
